@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="theme-color" content="#0f1229" />
+<title>WakeUpStronger</title>
+
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+<link rel="apple-touch-icon" href="./icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="sunrise" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">⏰</div>
+    <div>
+      <div class="title">WakeUpStronger</div>
+      <div class="subtitle">Будильник, який не здасться раніше за тебе</div>
+    </div>
+  </div>
+  <button id="btnRefresh" class="iconbtn" title="Оновити">↻</button>
+</header>
+
+<main class="layout">
+
+  <section class="clockCard">
+    <div class="clockLabel" id="clockLabel">Зараз</div>
+    <div class="clockTime" id="clockTime">--:--</div>
+    <div class="clockDate" id="clockDate">—</div>
+    <div class="wakeRow">
+      <label class="switch">
+        <input type="checkbox" id="wakeLockToggle" />
+        <span>Тримати екран увімкненим, поки є активний будильник</span>
+      </label>
+    </div>
+    <div class="small" id="wakeLockNote">Без цього телефон засне і будильник може не спрацювати. Тримай зарядку поруч.</div>
+  </section>
+
+  <section class="alarmsCard">
+    <div class="cardHead">
+      <div class="cardTitle">Будильники</div>
+      <button id="btnNewAlarm" class="btn primary">+ Новий</button>
+    </div>
+    <div id="alarmsList" class="alarmsList"></div>
+  </section>
+
+</main>
+
+<!-- Add/edit alarm modal -->
+<div id="editorOverlay" class="overlay" style="display:none;">
+  <div class="editorCard">
+    <div class="editorTitle" id="editorTitle">Новий будильник</div>
+
+    <label class="field">
+      <span>Час</span>
+      <input id="fTime" type="time" />
+    </label>
+
+    <label class="field">
+      <span>Назва (опційно)</span>
+      <input id="fLabel" type="text" placeholder="Напр. Ранкове тренування" />
+    </label>
+
+    <div class="field">
+      <span>Повторення</span>
+      <div class="days" id="fDays">
+        <button type="button" class="dayBtn" data-day="1">Пн</button>
+        <button type="button" class="dayBtn" data-day="2">Вт</button>
+        <button type="button" class="dayBtn" data-day="3">Ср</button>
+        <button type="button" class="dayBtn" data-day="4">Чт</button>
+        <button type="button" class="dayBtn" data-day="5">Пт</button>
+        <button type="button" class="dayBtn" data-day="6">Сб</button>
+        <button type="button" class="dayBtn" data-day="0">Нд</button>
+      </div>
+      <div class="small">Нічого не вибрано — спрацює лише один раз (сьогодні/завтра).</div>
+    </div>
+
+    <div class="field">
+      <span>Завдання для вимкнення</span>
+      <div class="typeToggle" id="taskTypeToggle">
+        <button type="button" class="typeBtn active" data-type="reps">💪 Повторення</button>
+        <button type="button" class="typeBtn" data-type="math">🧮 Приклади</button>
+      </div>
+    </div>
+
+    <div id="repsConfig" class="taskConfig">
+      <label class="field">
+        <span>Вправа</span>
+        <input id="fExercise" type="text" placeholder="Напр. Віджимання" value="Віджимання" />
+      </label>
+      <label class="field">
+        <span>Скільки разів</span>
+        <input id="fRepsCount" type="number" min="1" max="200" value="15" />
+      </label>
+    </div>
+
+    <div id="mathConfig" class="taskConfig" style="display:none;">
+      <label class="field">
+        <span>Складність</span>
+        <select id="fMathDifficulty">
+          <option value="easy">Легко (додавання/віднімання, до 20)</option>
+          <option value="medium" selected>Середньо (множення, до 12×12)</option>
+          <option value="hard">Важко (двоцифрові множення)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Скільки прикладів підряд</span>
+        <input id="fMathCount" type="number" min="1" max="20" value="5" />
+      </label>
+    </div>
+
+    <div class="row">
+      <button id="btnSaveAlarm" class="btn primary">Зберегти</button>
+      <button id="btnCancelAlarm" class="btn">Скасувати</button>
+    </div>
+    <button id="btnDeleteAlarm" class="btn danger full" style="display:none;">Видалити будильник</button>
+  </div>
+</div>
+
+<!-- Ringing alarm overlay -->
+<div id="ringOverlay" class="ringOverlay" style="display:none;">
+  <div class="ringPulse"></div>
+  <div class="ringContent">
+    <div class="ringLabel" id="ringLabel">ПРОКИНЬСЯ!</div>
+    <div class="ringTime" id="ringTime">--:--</div>
+
+    <div id="ringTaskReps" class="ringTask" style="display:none;">
+      <div class="ringTaskTitle" id="repsExerciseLabel">Віджимання</div>
+      <div class="repsCounter" id="repsCounter">0 / 15</div>
+      <button id="btnRepPlus" class="btn giant primary">+1</button>
+    </div>
+
+    <div id="ringTaskMath" class="ringTask" style="display:none;">
+      <div class="ringTaskTitle">Розв'яжи, щоб вимкнути (<span id="mathProgress">0/5</span>)</div>
+      <div class="mathProblem" id="mathProblem">? + ?</div>
+      <input id="mathAnswer" type="number" inputmode="numeric" class="mathInput" placeholder="Відповідь" />
+      <button id="btnMathSubmit" class="btn giant primary">Перевірити</button>
+      <div class="mathError" id="mathError" style="display:none;">Не те, спробуй ще раз</div>
+    </div>
+
+    <button id="btnSnooze" class="btn ghost snoozeBtn">Відкласти на 5 хв</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
