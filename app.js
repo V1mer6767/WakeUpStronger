@@ -571,18 +571,14 @@ async function updateWakeLockNeed() {
 }
 
 async function requestWakeLock() {
-  if (!("wakeLock" in navigator)) {
-    $("wakeLockNote").textContent = "Цей браузер не підтримує утримання екрана — залиш застосунок відкритим вручну.";
-    return;
-  }
+  if (!("wakeLock" in navigator)) return;
   try {
     state.wakeLock = await navigator.wakeLock.request("screen");
-    $("wakeLockNote").textContent = "Екран не засне, поки застосунок відкритий і є активний будильник.";
     state.wakeLock.addEventListener("release", () => {
       state.wakeLock = null;
     });
-  } catch (e) {
-    $("wakeLockNote").textContent = "Не вдалось утримати екран увімкненим. Тримай застосунок відкритим вручну.";
+  } catch {
+    // silently ignore; user can keep the app open manually
   }
 }
 
