@@ -307,4 +307,9 @@ body{
 }
 
 :focus-visible{outline:2px solid rgba(255,107,74,.6); outline-offset:2px;}
+.buildStamp{
+  position:relative; z-index:1; text-align:center;
+  font-family:var(--body); font-size:10px; color:rgba(255,255,255,.25);
+  padding:0 0 20px;
+}
 @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }

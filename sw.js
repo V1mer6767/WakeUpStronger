@@ -1,4 +1,4 @@
-const CACHE = "wakeupstronger-cache-v4";
+const CACHE = "wakeupstronger-cache-v5";
 const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./manifest.json"];
 
 self.addEventListener("install", (event) => {

@@ -591,11 +591,25 @@ function releaseWakeLock() {
 
 /* ---------- misc ---------- */
 function hardRefresh() {
-  try {
-    if ("caches" in window) caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
-    if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
-  } catch {}
-  setTimeout(() => (location.href = location.pathname + "?v=" + Date.now()), 150);
+  const btn = $("btnRefresh");
+  if (btn) {
+    btn.textContent = "⏳";
+    btn.disabled = true;
+  }
+  const cleanup = [];
+  if ("caches" in window) {
+    cleanup.push(caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))));
+  }
+  if ("serviceWorker" in navigator) {
+    cleanup.push(
+      navigator.serviceWorker.getRegistrations().then((regs) => Promise.all(regs.map((r) => r.unregister())))
+    );
+  }
+  Promise.all(cleanup)
+    .catch(() => {})
+    .finally(() => {
+      location.replace(location.pathname + "?v=" + Date.now());
+    });
 }
 
 async function registerSW() {
