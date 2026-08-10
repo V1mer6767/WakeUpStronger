@@ -90,6 +90,12 @@ body{
 .clockLabel{font-size:12px; color:var(--muted); letter-spacing:.4px; text-transform:uppercase;}
 .clockTime{font-family:var(--display); font-weight:700; font-size:64px; line-height:1.1; margin-top:6px; letter-spacing:1px;}
 .clockDate{color:var(--muted); font-size:13px; margin-top:4px;}
+.streakRow{
+  margin-top:12px; display:inline-flex; align-items:center; gap:6px;
+  font-family:var(--display); font-weight:600; font-size:14px;
+  color:var(--sunrise-2); background:var(--accent-dim);
+  border:1px solid rgba(255,179,71,.3); border-radius:999px; padding:6px 14px;
+}
 
 .wakeRow{margin-top:18px; text-align:left;}
 .switch{display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer;}
@@ -131,6 +137,8 @@ body{
 }
 .alarmTag.reps{color:var(--accent); border-color:rgba(255,107,74,.4);}
 .alarmTag.math{color:var(--cool); border-color:rgba(78,205,196,.4);}
+.alarmTag.shake{color:#ffb347; border-color:rgba(255,179,71,.4);}
+.alarmTag.memory{color:#8a7fff; border-color:rgba(138,127,255,.4);}
 
 .miniSwitch{
   width:44px; height:26px; border-radius:999px; flex-shrink:0;
@@ -186,6 +194,7 @@ body{
 .dayBtn.active{background:var(--accent-dim); border-color:rgba(255,107,74,.45); color:var(--accent);}
 
 .typeToggle{display:flex; gap:8px;}
+.typeToggle.grid4{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
 .typeBtn{
   flex:1; padding:10px 8px; border-radius:var(--radius-sm);
   border:1px solid var(--line-strong); background:var(--card2); color:var(--muted);
@@ -193,6 +202,8 @@ body{
 }
 .typeBtn[data-type="reps"].active{color:var(--accent); border-color:rgba(255,107,74,.45); background:var(--accent-dim);}
 .typeBtn[data-type="math"].active{color:var(--cool); border-color:rgba(78,205,196,.45); background:var(--cool-dim);}
+.typeBtn[data-type="shake"].active{color:#ffb347; border-color:rgba(255,179,71,.45); background:rgba(255,179,71,.14);}
+.typeBtn[data-type="memory"].active{color:#8a7fff; border-color:rgba(138,127,255,.45); background:rgba(138,127,255,.14);}
 
 .taskConfig{margin-top:6px;}
 
@@ -233,6 +244,61 @@ body{
 .mathError{color:var(--danger); font-size:13px; margin-top:10px;}
 
 .snoozeBtn{margin-top:28px; width:100%;}
+
+/* shake task */
+.shakeMeterWrap{
+  width:100%; height:18px; border-radius:999px; overflow:hidden;
+  background:var(--card2); border:1px solid var(--line-strong); margin-bottom:14px;
+}
+.shakeMeterFill{
+  height:100%; width:0%; border-radius:999px;
+  background:linear-gradient(90deg, var(--sunrise-2), var(--sunrise-1));
+  transition:width .15s ease-out;
+}
+
+/* memory game */
+.memoryGrid{
+  display:grid; grid-template-columns:1fr 1fr; gap:12px;
+  width:100%; max-width:280px; margin:0 auto 16px;
+}
+.memTile{
+  aspect-ratio:1; border-radius:20px; border:2px solid var(--line-strong);
+  background:var(--tile-color); opacity:.35; cursor:pointer;
+  transition:opacity .1s, transform .1s;
+}
+.memTile.lit{opacity:1; transform:scale(1.06); box-shadow:0 0 24px var(--tile-color);}
+.memTile:active{transform:scale(.96);}
+
+/* success burst */
+.successBurst{
+  position:fixed; inset:0; z-index:110;
+  background:radial-gradient(circle at 50% 40%, rgba(255,179,71,.35), rgba(15,18,41,.92) 70%);
+  display:flex; align-items:center; justify-content:center;
+  animation:burstIn .35s ease-out;
+}
+@keyframes burstIn{
+  0%{opacity:0; transform:scale(.9);}
+  100%{opacity:1; transform:scale(1);}
+}
+.successMsg{
+  font-family:var(--impact); font-size:38px; color:var(--sunrise-2);
+  text-align:center; animation:successPop .5s ease-out;
+}
+@keyframes successPop{
+  0%{transform:scale(.6) rotate(-4deg); opacity:0;}
+  60%{transform:scale(1.1) rotate(2deg); opacity:1;}
+  100%{transform:scale(1) rotate(0);}
+}
+
+/* shake animation for wrong math answers */
+.shakeError{animation:shakeX .35s;}
+@keyframes shakeX{
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-8px);}
+  40%{transform:translateX(8px);}
+  60%{transform:translateX(-6px);}
+  80%{transform:translateX(6px);}
+}
 
 :focus-visible{outline:2px solid rgba(255,107,74,.6); outline-offset:2px;}
 @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }

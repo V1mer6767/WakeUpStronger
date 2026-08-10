@@ -1,6 +1,9 @@
 const STORAGE_KEY = "wus_alarms_v1";
+const STREAK_KEY = "wus_streak_v1";
 const $ = (id) => document.getElementById(id);
 const DAY_NAMES = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const MEMORY_COLORS = 4;
+const TASK_EMOJI = { reps: "💪", math: "🧮", shake: "📳", memory: "🧠" };
 
 const state = {
   alarms: [],
@@ -12,6 +15,13 @@ const state = {
   mathSolved: 0,
   mathAnswer: 0,
   wakeLock: null,
+  shakeCount: 0,
+  shakeLastTime: 0,
+  shakeHandler: null,
+  memoryRound: 1,
+  memorySequence: [],
+  memoryInput: [],
+  memoryShowing: false,
 };
 
 function uid() {
@@ -30,6 +40,39 @@ function load() {
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.alarms));
+}
+
+function todayStr(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function loadStreak() {
+  try {
+    return JSON.parse(localStorage.getItem(STREAK_KEY)) || { count: 0, lastDate: null };
+  } catch {
+    return { count: 0, lastDate: null };
+  }
+}
+
+function renderStreak() {
+  const streak = loadStreak();
+  const row = $("streakRow");
+  if (streak.count > 0) {
+    row.style.display = "inline-flex";
+    $("streakCount").textContent = streak.count;
+  } else {
+    row.style.display = "none";
+  }
+}
+
+function registerSuccessfulWake() {
+  const streak = loadStreak();
+  const today = todayStr(new Date());
+  if (streak.lastDate === today) return; // already counted today
+  const yesterday = todayStr(new Date(Date.now() - 86400000));
+  const next = streak.lastDate === yesterday ? streak.count + 1 : 1;
+  localStorage.setItem(STREAK_KEY, JSON.stringify({ count: next, lastDate: today }));
+  renderStreak();
 }
 
 function pad(n) {
@@ -84,10 +127,11 @@ function describeAlarm(alarm) {
   const daysText = repeats
     ? alarm.days.slice().sort().map((d) => DAY_NAMES[d]).join(" ")
     : "Один раз";
-  const taskText =
-    alarm.taskType === "reps"
-      ? `${alarm.reps.count} × ${alarm.reps.exercise}`
-      : `${alarm.math.count} приклад(ів), ${{ easy: "легко", medium: "середньо", hard: "важко" }[alarm.math.difficulty]}`;
+  let taskText;
+  if (alarm.taskType === "reps") taskText = `${alarm.reps.count} × ${alarm.reps.exercise}`;
+  else if (alarm.taskType === "math") taskText = `${alarm.math.count} приклад(ів), ${{ easy: "легко", medium: "середньо", hard: "важко" }[alarm.math.difficulty]}`;
+  else if (alarm.taskType === "shake") taskText = `${alarm.shake.count} струсів`;
+  else taskText = `${alarm.memory.rounds} раунд(ів) пам'яті`;
   return { daysText, taskText };
 }
 
@@ -114,7 +158,7 @@ function renderAlarms() {
       <div class="alarmInfo">
         <div class="alarmLabel">${escapeHTML(alarm.label || "Будильник")}</div>
         <div class="alarmMeta">
-          <span class="alarmTag ${alarm.taskType}">${alarm.taskType === "reps" ? "💪" : "🧮"} ${escapeHTML(taskText)}</span>
+          <span class="alarmTag ${alarm.taskType}">${TASK_EMOJI[alarm.taskType]} ${escapeHTML(taskText)}</span>
           <span>${escapeHTML(daysText)}</span>
         </div>
       </div>
@@ -158,6 +202,8 @@ function openEditor(id) {
   $("fRepsCount").value = alarm ? alarm.reps.count : 15;
   $("fMathDifficulty").value = alarm ? alarm.math.difficulty : "medium";
   $("fMathCount").value = alarm ? alarm.math.count : 5;
+  $("fShakeCount").value = alarm && alarm.shake ? alarm.shake.count : 30;
+  $("fMemoryRounds").value = alarm && alarm.memory ? alarm.memory.rounds : 4;
 
   $("btnDeleteAlarm").style.display = alarm ? "block" : "none";
   $("editorOverlay").style.display = "flex";
@@ -173,6 +219,8 @@ function setEditTaskType(type) {
   document.querySelectorAll(".typeBtn").forEach((b) => b.classList.toggle("active", b.dataset.type === type));
   $("repsConfig").style.display = type === "reps" ? "block" : "none";
   $("mathConfig").style.display = type === "math" ? "block" : "none";
+  $("shakeConfig").style.display = type === "shake" ? "block" : "none";
+  $("memoryConfig").style.display = type === "memory" ? "block" : "none";
 }
 
 function saveAlarmFromEditor() {
@@ -189,6 +237,8 @@ function saveAlarmFromEditor() {
   alarm.taskType = state.editTaskType;
   alarm.reps = { exercise: $("fExercise").value.trim() || "Віджимання", count: Math.max(1, parseInt($("fRepsCount").value, 10) || 15) };
   alarm.math = { difficulty: $("fMathDifficulty").value, count: Math.max(1, parseInt($("fMathCount").value, 10) || 5) };
+  alarm.shake = { count: Math.max(5, parseInt($("fShakeCount").value, 10) || 30) };
+  alarm.memory = { rounds: Math.max(1, parseInt($("fMemoryRounds").value, 10) || 4) };
   if (typeof alarm.enabled !== "boolean") alarm.enabled = true;
   alarm.firedOnce = false;
 
@@ -250,18 +300,28 @@ function ringAlarm(alarm) {
   $("ringLabel").textContent = "ПРОКИНЬСЯ!";
   $("ringTime").textContent = alarm.time;
 
+  $("ringTaskReps").style.display = "none";
+  $("ringTaskMath").style.display = "none";
+  $("ringTaskShake").style.display = "none";
+  $("ringTaskMemory").style.display = "none";
+  stopShakeDetection();
+
   if (alarm.taskType === "reps") {
     state.repsCount = 0;
     $("ringTaskReps").style.display = "block";
-    $("ringTaskMath").style.display = "none";
     $("repsExerciseLabel").textContent = alarm.reps.exercise;
     $("repsCounter").textContent = `0 / ${alarm.reps.count}`;
-  } else {
+  } else if (alarm.taskType === "math") {
     state.mathSolved = 0;
-    $("ringTaskReps").style.display = "none";
     $("ringTaskMath").style.display = "block";
     $("mathProgress").textContent = `0/${alarm.math.count}`;
     nextMathProblem(alarm.math.difficulty);
+  } else if (alarm.taskType === "shake") {
+    $("ringTaskShake").style.display = "block";
+    startShakeTask(alarm.shake.count);
+  } else if (alarm.taskType === "memory") {
+    $("ringTaskMemory").style.display = "block";
+    startMemoryTask(alarm.memory.rounds);
   }
 
   $("ringOverlay").style.display = "flex";
@@ -273,12 +333,21 @@ function ringAlarm(alarm) {
 
 function stopRinging() {
   stopBeeping();
+  stopShakeDetection();
   $("ringOverlay").style.display = "none";
   state.ringingAlarm = null;
 }
 
 function completeAlarm() {
-  stopRinging();
+  registerSuccessfulWake();
+  stopBeeping();
+  stopShakeDetection();
+  $("successBurst").style.display = "flex";
+  setTimeout(() => {
+    $("successBurst").style.display = "none";
+    $("ringOverlay").style.display = "none";
+    state.ringingAlarm = null;
+  }, 1100);
 }
 
 function snoozeAlarm() {
@@ -301,6 +370,8 @@ function snoozeAlarm() {
     taskType: alarm.taskType,
     reps: alarm.reps,
     math: alarm.math,
+    shake: alarm.shake,
+    memory: alarm.memory,
   };
   state.alarms.push(snoozeAlarmObj);
   save();
@@ -357,6 +428,134 @@ function submitMathAnswer() {
     $("mathError").style.display = "block";
     $("mathAnswer").value = "";
     $("mathAnswer").focus();
+    const input = $("mathAnswer");
+    input.classList.remove("shakeError");
+    void input.offsetWidth;
+    input.classList.add("shakeError");
+  }
+}
+
+/* ---------- shake task ---------- */
+function startShakeTask(target) {
+  state.shakeCount = 0;
+  state.shakeLastTime = 0;
+  $("shakeCounter").textContent = `0 / ${target}`;
+  $("shakeMeterFill").style.width = "0%";
+  $("btnShakePermission").style.display = "none";
+
+  const needsPermission = typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function";
+  if (needsPermission) {
+    $("btnShakePermission").style.display = "block";
+    $("btnShakePermission").onclick = async () => {
+      try {
+        const perm = await DeviceMotionEvent.requestPermission();
+        if (perm === "granted") {
+          $("btnShakePermission").style.display = "none";
+          attachShakeListener(target);
+        } else {
+          alert("Без доступу до руху телефону це завдання не спрацює. Дозволь у налаштуваннях Safari.");
+        }
+      } catch {
+        alert("Не вдалось запросити дозвіл.");
+      }
+    };
+  } else {
+    attachShakeListener(target);
+  }
+}
+
+function attachShakeListener(target) {
+  const threshold = 16; // m/s^2 jerk threshold
+  const handler = (e) => {
+    const acc = e.accelerationIncludingGravity || e.acceleration;
+    if (!acc) return;
+    const mag = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
+    const now = Date.now();
+    if (mag > threshold && now - state.shakeLastTime > 300) {
+      state.shakeLastTime = now;
+      state.shakeCount++;
+      const alarm = state.ringingAlarm;
+      if (!alarm) return;
+      $("shakeCounter").textContent = `${state.shakeCount} / ${alarm.shake.count}`;
+      $("shakeMeterFill").style.width = Math.min(100, (state.shakeCount / alarm.shake.count) * 100) + "%";
+      if (navigator.vibrate) { try { navigator.vibrate(30); } catch {} }
+      if (state.shakeCount >= alarm.shake.count) {
+        completeAlarm();
+      }
+    }
+  };
+  state.shakeHandler = handler;
+  window.addEventListener("devicemotion", handler);
+}
+
+function stopShakeDetection() {
+  if (state.shakeHandler) {
+    window.removeEventListener("devicemotion", state.shakeHandler);
+    state.shakeHandler = null;
+  }
+}
+
+/* ---------- memory (Simon-says) task ---------- */
+function startMemoryTask(totalRounds) {
+  state.memoryRound = 1;
+  state.memorySequence = [];
+  state.memoryInput = [];
+  state.memoryShowing = true;
+  $("memoryProgress").textContent = `раунд 1/${totalRounds}`;
+  $("memoryHint").textContent = "Дивись уважно...";
+  growAndPlayMemorySequence();
+}
+
+function growAndPlayMemorySequence() {
+  state.memorySequence.push(Math.floor(Math.random() * MEMORY_COLORS));
+  state.memoryInput = [];
+  state.memoryShowing = true;
+  playMemorySequence();
+}
+
+async function playMemorySequence() {
+  const tiles = document.querySelectorAll(".memTile");
+  await new Promise((r) => setTimeout(r, 500));
+  for (const idx of state.memorySequence) {
+    tiles[idx].classList.add("lit");
+    await new Promise((r) => setTimeout(r, 420));
+    tiles[idx].classList.remove("lit");
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  state.memoryShowing = false;
+  $("memoryHint").textContent = "Тепер повтори!";
+}
+
+function handleMemoryTileClick(idx) {
+  if (state.memoryShowing || !state.ringingAlarm) return;
+  const tiles = document.querySelectorAll(".memTile");
+  tiles[idx].classList.add("lit");
+  setTimeout(() => tiles[idx].classList.remove("lit"), 200);
+
+  state.memoryInput.push(idx);
+  const pos = state.memoryInput.length - 1;
+  if (state.memoryInput[pos] !== state.memorySequence[pos]) {
+    // wrong: flash red and retry same round
+    $("memoryHint").textContent = "Не те, дивись ще раз...";
+    if (navigator.vibrate) { try { navigator.vibrate(200); } catch {} }
+    setTimeout(() => {
+      state.memoryInput = [];
+      playMemorySequence();
+    }, 700);
+    return;
+  }
+
+  if (state.memoryInput.length === state.memorySequence.length) {
+    const alarm = state.ringingAlarm;
+    const totalRounds = alarm.memory.rounds;
+    if (state.memoryRound >= totalRounds) {
+      completeAlarm();
+      return;
+    }
+    state.memoryRound++;
+    $("memoryProgress").textContent = `раунд ${state.memoryRound}/${totalRounds}`;
+    $("memoryHint").textContent = "Дивись уважно...";
+    setTimeout(growAndPlayMemorySequence, 700);
   }
 }
 
@@ -437,6 +636,10 @@ function wire() {
   });
   $("btnSnooze").addEventListener("click", snoozeAlarm);
 
+  document.querySelectorAll(".memTile").forEach((tile) => {
+    tile.addEventListener("click", () => handleMemoryTileClick(Number(tile.dataset.idx)));
+  });
+
   $("wakeLockToggle").addEventListener("change", updateWakeLockNeed);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) updateWakeLockNeed();
@@ -448,6 +651,7 @@ function init() {
   wire();
   registerSW();
   renderAlarms();
+  renderStreak();
   tickClock();
   setInterval(tickClock, 1000);
 }

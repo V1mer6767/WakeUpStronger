@@ -34,6 +34,8 @@
     <div class="clockLabel" id="clockLabel">Зараз</div>
     <div class="clockTime" id="clockTime">--:--</div>
     <div class="clockDate" id="clockDate">—</div>
+    <div class="streakRow" id="streakRow" style="display:none;">
+      🔥 <span id="streakCount">0</span> днів поспіль</div>
     <div class="wakeRow">
       <label class="switch">
         <input type="checkbox" id="wakeLockToggle" />
@@ -84,9 +86,11 @@
 
     <div class="field">
       <span>Завдання для вимкнення</span>
-      <div class="typeToggle" id="taskTypeToggle">
+      <div class="typeToggle grid4" id="taskTypeToggle">
         <button type="button" class="typeBtn active" data-type="reps">💪 Повторення</button>
         <button type="button" class="typeBtn" data-type="math">🧮 Приклади</button>
+        <button type="button" class="typeBtn" data-type="shake">📳 Струси телефон</button>
+        <button type="button" class="typeBtn" data-type="memory">🧠 Послідовність</button>
       </div>
     </div>
 
@@ -114,6 +118,22 @@
         <span>Скільки прикладів підряд</span>
         <input id="fMathCount" type="number" min="1" max="20" value="5" />
       </label>
+    </div>
+
+    <div id="shakeConfig" class="taskConfig" style="display:none;">
+      <label class="field">
+        <span>Скільки разів струснути</span>
+        <input id="fShakeCount" type="number" min="5" max="200" value="30" />
+      </label>
+      <div class="small">Треба буде трясти телефон, як градусник — рахуємо різкі рухи через акселерометр.</div>
+    </div>
+
+    <div id="memoryConfig" class="taskConfig" style="display:none;">
+      <label class="field">
+        <span>Скільки раундів пройти</span>
+        <input id="fMemoryRounds" type="number" min="1" max="10" value="4" />
+      </label>
+      <div class="small">Гра типу «Симон каже»: запам'ятай і повтори послідовність кольорів, що росте з кожним раундом.</div>
     </div>
 
     <div class="row">
@@ -145,7 +165,31 @@
       <div class="mathError" id="mathError" style="display:none;">Не те, спробуй ще раз</div>
     </div>
 
+    <div id="ringTaskShake" class="ringTask" style="display:none;">
+      <div class="ringTaskTitle">Труси телефоном!</div>
+      <div class="shakeMeterWrap">
+        <div class="shakeMeterFill" id="shakeMeterFill"></div>
+      </div>
+      <div class="repsCounter" id="shakeCounter">0 / 30</div>
+      <button id="btnShakePermission" class="btn giant primary" style="display:none;">Дозволити рух телефону</button>
+    </div>
+
+    <div id="ringTaskMemory" class="ringTask" style="display:none;">
+      <div class="ringTaskTitle">Повтори послідовність (<span id="memoryProgress">раунд 1/4</span>)</div>
+      <div class="memoryGrid" id="memoryGrid">
+        <button class="memTile" data-idx="0" style="--tile-color:#ff6b4a;"></button>
+        <button class="memTile" data-idx="1" style="--tile-color:#ffb347;"></button>
+        <button class="memTile" data-idx="2" style="--tile-color:#4ecdc4;"></button>
+        <button class="memTile" data-idx="3" style="--tile-color:#8a7fff;"></button>
+      </div>
+      <div class="small" id="memoryHint">Дивись уважно...</div>
+    </div>
+
     <button id="btnSnooze" class="btn ghost snoozeBtn">Відкласти на 5 хв</button>
+  </div>
+
+  <div id="successBurst" class="successBurst" style="display:none;">
+    <div class="successMsg">💪 Молодець!</div>
   </div>
 </div>
 
