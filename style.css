@@ -64,6 +64,7 @@ body{
 }
 .title{font-family:var(--display); font-weight:700; font-size:19px;}
 .subtitle{font-size:11px; color:var(--muted); margin-top:2px;}
+.actions{display:flex; align-items:center; gap:8px;}
 
 .iconbtn{
   width:38px; height:38px; border-radius:11px;

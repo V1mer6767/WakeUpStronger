@@ -1,4 +1,5 @@
 const STORAGE_KEY = "wus_alarms_v1";
+const DEFAULT_SOUND_KEY = "wus_default_sound";
 const STREAK_KEY = "wus_streak_v1";
 const $ = (id) => document.getElementById(id);
 const DAY_NAMES = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -206,7 +207,7 @@ function openEditor(id) {
   $("fShakeCount").value = alarm && alarm.shake ? alarm.shake.count : 30;
   $("fMemoryRounds").value = alarm && alarm.memory ? alarm.memory.rounds : 4;
 
-  state.editSound = alarm && alarm.sound ? alarm.sound : "classic";
+  state.editSound = alarm && alarm.sound ? alarm.sound : getDefaultSound();
   setEditSound(state.editSound);
 
   $("btnDeleteAlarm").style.display = alarm ? "block" : "none";
@@ -230,7 +231,22 @@ function setEditTaskType(type) {
 
 function setEditSound(sound) {
   state.editSound = sound;
-  document.querySelectorAll(".soundBtn").forEach((b) => b.classList.toggle("active", b.dataset.sound === sound));
+  document.querySelectorAll("#soundGrid .soundBtn").forEach((b) => b.classList.toggle("active", b.dataset.sound === sound));
+}
+
+function getDefaultSound() {
+  return localStorage.getItem(DEFAULT_SOUND_KEY) || "classic";
+}
+
+function openSoundsPanel() {
+  const current = getDefaultSound();
+  document.querySelectorAll("#defaultSoundGrid .soundBtn").forEach((b) => b.classList.toggle("active", b.dataset.sound === current));
+  $("soundsOverlay").style.display = "flex";
+}
+
+function closeSoundsPanel() {
+  stopBeeping();
+  $("soundsOverlay").style.display = "none";
 }
 
 function saveAlarmFromEditor() {
@@ -711,6 +727,19 @@ function wire() {
   $("btnSaveAlarm").addEventListener("click", saveAlarmFromEditor);
   $("btnDeleteAlarm").addEventListener("click", deleteAlarm);
   $("btnRefresh").addEventListener("click", hardRefresh);
+
+  $("btnSounds").addEventListener("click", openSoundsPanel);
+  $("btnCloseSounds").addEventListener("click", closeSoundsPanel);
+  document.querySelectorAll("#defaultSoundGrid .soundBtn").forEach((b) => {
+    b.addEventListener("click", () => {
+      localStorage.setItem(DEFAULT_SOUND_KEY, b.dataset.sound);
+      document.querySelectorAll("#defaultSoundGrid .soundBtn").forEach((x) => x.classList.toggle("active", x === b));
+    });
+  });
+  $("btnPreviewDefaultSound").addEventListener("click", () => {
+    const active = document.querySelector("#defaultSoundGrid .soundBtn.active");
+    previewSound(active ? active.dataset.sound : "classic");
+  });
 
   document.querySelectorAll(".dayBtn").forEach((b) => {
     b.addEventListener("click", () => {

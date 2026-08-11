@@ -24,7 +24,10 @@
       <div class="title">WakeUpStronger</div>
     </div>
   </div>
-  <button id="btnRefresh" class="iconbtn" title="Оновити">↻</button>
+  <div class="actions">
+    <button id="btnSounds" class="iconbtn" title="Звуки будильника">🎵</button>
+    <button id="btnRefresh" class="iconbtn" title="Оновити">↻</button>
+  </div>
 </header>
 
 <main class="layout">
@@ -53,7 +56,7 @@
 
 </main>
 
-<div class="buildStamp" id="buildStamp">build v5</div>
+<div class="buildStamp" id="buildStamp">build v6</div>
 
 <!-- Add/edit alarm modal -->
 <div id="editorOverlay" class="overlay" style="display:none;">
@@ -157,6 +160,27 @@
 </div>
 
 <!-- Ringing alarm overlay -->
+<!-- Sounds settings overlay -->
+<div id="soundsOverlay" class="overlay" style="display:none;">
+  <div class="editorCard">
+    <div class="editorTitle">Звуки будильника</div>
+    <div class="small" style="margin-bottom:14px;">Обери типовий звук — він буде запропонований для кожного нового будильника (звук для вже створених будильників можна змінити в їх редакторі).</div>
+
+    <div class="soundGrid" id="defaultSoundGrid">
+      <button type="button" class="soundBtn" data-sound="classic">🔔 Класичний</button>
+      <button type="button" class="soundBtn" data-sound="pulse">📟 Подвійний</button>
+      <button type="button" class="soundBtn" data-sound="siren">🚨 Сирена</button>
+      <button type="button" class="soundBtn" data-sound="chime">🎐 Дзвіночки</button>
+      <button type="button" class="soundBtn" data-sound="gentle">🌤 М'який</button>
+    </div>
+    <button type="button" id="btnPreviewDefaultSound" class="btn ghost full">▶ Прослухати</button>
+
+    <div class="row">
+      <button id="btnCloseSounds" class="btn primary full">Готово</button>
+    </div>
+  </div>
+</div>
+
 <div id="ringOverlay" class="ringOverlay" style="display:none;">
   <div class="ringPulse"></div>
   <div class="ringContent">
