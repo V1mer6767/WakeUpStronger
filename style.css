@@ -201,6 +201,13 @@ body{
 
 .typeToggle{display:flex; gap:8px;}
 .typeToggle.grid4{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.soundGrid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;}
+.soundBtn{
+  padding:10px 8px; border-radius:var(--radius-sm);
+  border:1px solid var(--line-strong); background:var(--card2); color:var(--muted);
+  font-family:var(--body); font-size:12.5px; font-weight:600; cursor:pointer;
+}
+.soundBtn.active{color:var(--sunrise-2); border-color:rgba(255,179,71,.45); background:rgba(255,179,71,.14);}
 .typeBtn{
   flex:1; padding:10px 8px; border-radius:var(--radius-sm);
   border:1px solid var(--line-strong); background:var(--card2); color:var(--muted);

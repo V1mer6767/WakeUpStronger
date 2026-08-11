@@ -10,6 +10,7 @@ const state = {
   editingId: null,
   editDays: new Set(),
   editTaskType: "reps",
+  editSound: "classic",
   ringingAlarm: null,
   repsCount: 0,
   mathSolved: 0,
@@ -205,11 +206,15 @@ function openEditor(id) {
   $("fShakeCount").value = alarm && alarm.shake ? alarm.shake.count : 30;
   $("fMemoryRounds").value = alarm && alarm.memory ? alarm.memory.rounds : 4;
 
+  state.editSound = alarm && alarm.sound ? alarm.sound : "classic";
+  setEditSound(state.editSound);
+
   $("btnDeleteAlarm").style.display = alarm ? "block" : "none";
   $("editorOverlay").style.display = "flex";
 }
 
 function closeEditor() {
+  stopBeeping();
   $("editorOverlay").style.display = "none";
   state.editingId = null;
 }
@@ -221,6 +226,11 @@ function setEditTaskType(type) {
   $("mathConfig").style.display = type === "math" ? "block" : "none";
   $("shakeConfig").style.display = type === "shake" ? "block" : "none";
   $("memoryConfig").style.display = type === "memory" ? "block" : "none";
+}
+
+function setEditSound(sound) {
+  state.editSound = sound;
+  document.querySelectorAll(".soundBtn").forEach((b) => b.classList.toggle("active", b.dataset.sound === sound));
 }
 
 function saveAlarmFromEditor() {
@@ -239,6 +249,7 @@ function saveAlarmFromEditor() {
   alarm.math = { difficulty: $("fMathDifficulty").value, count: Math.max(1, parseInt($("fMathCount").value, 10) || 5) };
   alarm.shake = { count: Math.max(5, parseInt($("fShakeCount").value, 10) || 30) };
   alarm.memory = { rounds: Math.max(1, parseInt($("fMemoryRounds").value, 10) || 4) };
+  alarm.sound = state.editSound;
   if (typeof alarm.enabled !== "boolean") alarm.enabled = true;
   alarm.firedOnce = false;
 
@@ -259,39 +270,113 @@ function deleteAlarm() {
 
 /* ---------- alarm sound (Web Audio, no external files) ---------- */
 let audioCtx = null;
-let beepTimer = null;
+let soundTimers = [];
+let soundNodes = [];
 
-function startBeeping() {
+const SOUND_NAMES = { classic: "Класичний", pulse: "Подвійний", siren: "Сирена", chime: "Дзвіночки", gentle: "М'який" };
+
+function playEnvTone(ctx, freq, dur, type, peak) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.value = 0.0001;
+  osc.connect(gain).connect(ctx.destination);
+  const t = ctx.currentTime;
+  gain.gain.exponentialRampToValueAtTime(peak, t + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.start(t);
+  osc.stop(t + dur + 0.05);
+}
+
+const SOUND_PLAYERS = {
+  classic(ctx) {
+    const beepOnce = () => playEnvTone(ctx, 880, 0.35, "square", 0.18);
+    beepOnce();
+    soundTimers.push(setInterval(beepOnce, 600));
+  },
+  pulse(ctx) {
+    const pair = () => {
+      playEnvTone(ctx, 1000, 0.12, "square", 0.2);
+      soundTimers.push(setTimeout(() => playEnvTone(ctx, 1000, 0.12, "square", 0.2), 180));
+    };
+    pair();
+    soundTimers.push(setInterval(pair, 550));
+  },
+  siren(ctx) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    gain.gain.value = 0.14;
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    soundNodes.push(osc);
+    let freq = 500;
+    let dir = 1;
+    const id = setInterval(() => {
+      freq += dir * 35;
+      if (freq > 950) { freq = 950; dir = -1; }
+      if (freq < 450) { freq = 450; dir = 1; }
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    }, 40);
+    soundTimers.push(id);
+  },
+  chime(ctx) {
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    let i = 0;
+    const playNote = () => {
+      playEnvTone(ctx, notes[i % notes.length], 0.85, "sine", 0.2);
+      i++;
+    };
+    playNote();
+    soundTimers.push(setInterval(playNote, 420));
+  },
+  gentle(ctx) {
+    const cycle = () => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 440;
+      gain.gain.value = 0.0001;
+      osc.connect(gain).connect(ctx.destination);
+      const t = ctx.currentTime;
+      gain.gain.linearRampToValueAtTime(0.15, t + 2.1);
+      gain.gain.linearRampToValueAtTime(0.0001, t + 2.7);
+      osc.start(t);
+      osc.stop(t + 2.8);
+    };
+    cycle();
+    soundTimers.push(setInterval(cycle, 3000));
+  },
+};
+
+function startBeeping(soundType) {
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   } catch {
     return;
   }
-  const beepOnce = () => {
-    if (!audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = "square";
-    osc.frequency.value = 880;
-    gain.gain.value = 0.0001;
-    osc.connect(gain).connect(audioCtx.destination);
-    const t = audioCtx.currentTime;
-    gain.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-    osc.start(t);
-    osc.stop(t + 0.4);
-  };
-  beepOnce();
-  beepTimer = setInterval(beepOnce, 600);
+  const player = SOUND_PLAYERS[soundType] || SOUND_PLAYERS.classic;
+  player(audioCtx);
 }
 
 function stopBeeping() {
-  if (beepTimer) clearInterval(beepTimer);
-  beepTimer = null;
+  soundTimers.forEach((t) => { clearInterval(t); clearTimeout(t); });
+  soundTimers = [];
+  soundNodes.forEach((n) => { try { n.stop(); } catch {} });
+  soundNodes = [];
   if (audioCtx) {
     audioCtx.close().catch(() => {});
     audioCtx = null;
   }
+}
+
+let previewTimer = null;
+function previewSound(soundType) {
+  stopBeeping();
+  if (previewTimer) clearTimeout(previewTimer);
+  startBeeping(soundType);
+  previewTimer = setTimeout(stopBeeping, 2600);
 }
 
 /* ---------- ringing / task flow ---------- */
@@ -325,7 +410,7 @@ function ringAlarm(alarm) {
   }
 
   $("ringOverlay").style.display = "flex";
-  startBeeping();
+  startBeeping(alarm.sound || "classic");
   if (navigator.vibrate) {
     try { navigator.vibrate([400, 200, 400, 200, 400]); } catch {}
   }
@@ -372,6 +457,7 @@ function snoozeAlarm() {
     math: alarm.math,
     shake: alarm.shake,
     memory: alarm.memory,
+    sound: alarm.sound,
   };
   state.alarms.push(snoozeAlarmObj);
   save();
@@ -638,6 +724,11 @@ function wire() {
   document.querySelectorAll(".typeBtn").forEach((b) => {
     b.addEventListener("click", () => setEditTaskType(b.dataset.type));
   });
+
+  document.querySelectorAll(".soundBtn").forEach((b) => {
+    b.addEventListener("click", () => setEditSound(b.dataset.sound));
+  });
+  $("btnPreviewSound").addEventListener("click", () => previewSound(state.editSound));
 
   $("btnRepPlus").addEventListener("click", addRep);
   $("btnMathSubmit").addEventListener("click", submitMathAnswer);
